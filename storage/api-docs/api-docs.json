@@ -20,29 +20,414 @@
         }
     ],
     "paths": {
-        "/events": {
+        "/api/events": {
             "get": {
                 "tags": [
                     "Events"
                 ],
-                "summary": "List all events",
-                "operationId": "66c820e79ec6535e179375c186db9395",
+                "summary": "List events",
+                "description": "Retrieve a list of events. Can be filtered by calendar_id, user_id, or date range.",
+                "operationId": "7058ab7c89d20c752b6afd6d808f6526",
+                "parameters": [
+                    {
+                        "name": "calendar_id",
+                        "in": "query",
+                        "description": "Filter events by calendar ID",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "user_id",
+                        "in": "query",
+                        "description": "Filter events by user ID (creator or participant)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "start_date",
+                        "in": "query",
+                        "description": "Filter events starting from this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "end_date",
+                        "in": "query",
+                        "description": "Filter events ending before this date",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "with_participants",
+                        "in": "query",
+                        "description": "Include participant details",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "Successful response",
+                        "description": "List of events",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "properties": {
-                                        "message": {
-                                            "type": "string",
-                                            "example": "List of events"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Event"
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Create a new event",
+                "description": "Create a new event in the system",
+                "operationId": "508895e03d7f10edac84357084c87b20",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateEventRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Event created successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Event"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/events/{id}": {
+            "get": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get a specific event",
+                "description": "Retrieve details of a specific event by ID",
+                "operationId": "6f743f71f7a88dbe57be1d9c9ebf47cb",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "with_participants",
+                        "in": "query",
+                        "description": "Include participant details",
+                        "required": false,
+                        "schema": {
+                            "type": "boolean",
+                            "default": false
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Event details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Event"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Update an event",
+                "description": "Update an existing event",
+                "operationId": "fb130dcf1ab4d7abbd3a173741df1f8f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateEventRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Event updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Event"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found"
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Delete an event",
+                "description": "Delete an event and all its participants",
+                "operationId": "b8c8f4b41a32532f5e9f7146e511bc61",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Event deleted successfully"
+                    },
+                    "404": {
+                        "description": "Event not found"
+                    }
+                }
+            }
+        },
+        "/api/events/{id}/participants": {
+            "post": {
+                "tags": [
+                    "Event Participants"
+                ],
+                "summary": "Invite a participant to an event",
+                "description": "Add a new participant to an event",
+                "operationId": "bb31a6e25d3ef524db8bd4049fbff26f",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/InviteParticipantRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Participant invited successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventParticipant"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Event not found"
+                    },
+                    "409": {
+                        "description": "Participant already exists"
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/events/{eventId}/participants/{userId}": {
+            "put": {
+                "tags": [
+                    "Event Participants"
+                ],
+                "summary": "Update participant status",
+                "description": "Update a participant's status and assigned calendar",
+                "operationId": "5079cac4a4b48f6b529400e95c62c6eb",
+                "parameters": [
+                    {
+                        "name": "eventId",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateParticipantRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Participant updated successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/EventParticipant"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Participant not found"
+                    },
+                    "422": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ValidationError"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Event Participants"
+                ],
+                "summary": "Remove a participant from an event",
+                "description": "Remove a participant from an event",
+                "operationId": "751c333a6212faf6ba439f06c3909b03",
+                "parameters": [
+                    {
+                        "name": "eventId",
+                        "in": "path",
+                        "description": "Event ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "userId",
+                        "in": "path",
+                        "description": "User ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Participant removed successfully"
+                    },
+                    "404": {
+                        "description": "Participant not found"
                     }
                 }
             }
@@ -64,6 +449,314 @@
                     }
                 },
                 "type": "object"
+            },
+            "Event": {
+                "title": "Event",
+                "description": "Event model",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "calendar_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440001"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Team Meeting"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Weekly team sync meeting",
+                        "nullable": true
+                    },
+                    "start_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T10:00:00Z"
+                    },
+                    "end_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T11:00:00Z"
+                    },
+                    "is_all_day": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "America/Argentina/Buenos_Aires"
+                    },
+                    "recurrence_rule": {
+                        "type": "string",
+                        "example": "FREQ=WEEKLY;BYDAY=MO",
+                        "nullable": true
+                    },
+                    "location": {
+                        "type": "string",
+                        "example": "Conference Room A",
+                        "nullable": true
+                    },
+                    "creator_user_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440002"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "confirmed",
+                            "canceled",
+                            "tentative",
+                            "pending_approval"
+                        ],
+                        "example": "confirmed"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-03T15:20:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-03T15:20:00Z"
+                    },
+                    "participants": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EventParticipant"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "EventParticipant": {
+                "title": "Event Participant",
+                "description": "Event participant model",
+                "properties": {
+                    "event_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
+                    },
+                    "user_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440003"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "accepted",
+                            "declined",
+                            "tentative"
+                        ],
+                        "example": "accepted"
+                    },
+                    "assigned_calendar_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440004",
+                        "nullable": true
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "organizer",
+                            "attendee"
+                        ],
+                        "example": "attendee"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-03T15:20:00Z"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-03T15:20:00Z"
+                    }
+                },
+                "type": "object"
+            },
+            "CreateEventRequest": {
+                "title": "Create Event Request",
+                "description": "Request payload for creating an event",
+                "required": [
+                    "calendar_id",
+                    "title",
+                    "start_datetime",
+                    "end_datetime",
+                    "timezone",
+                    "creator_user_id"
+                ],
+                "properties": {
+                    "calendar_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440001"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Team Meeting"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Weekly team sync meeting",
+                        "nullable": true
+                    },
+                    "start_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T10:00:00Z"
+                    },
+                    "end_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T11:00:00Z"
+                    },
+                    "is_all_day": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "America/Argentina/Buenos_Aires"
+                    },
+                    "recurrence_rule": {
+                        "type": "string",
+                        "example": "FREQ=WEEKLY;BYDAY=MO",
+                        "nullable": true
+                    },
+                    "location": {
+                        "type": "string",
+                        "example": "Conference Room A",
+                        "nullable": true
+                    },
+                    "creator_user_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440002"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "confirmed",
+                            "canceled",
+                            "tentative",
+                            "pending_approval"
+                        ],
+                        "example": "confirmed"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateEventRequest": {
+                "title": "Update Event Request",
+                "description": "Request payload for updating an event",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "example": "Updated Team Meeting"
+                    },
+                    "description": {
+                        "type": "string",
+                        "example": "Updated weekly team sync meeting",
+                        "nullable": true
+                    },
+                    "start_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T10:30:00Z"
+                    },
+                    "end_datetime": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-06-10T11:30:00Z"
+                    },
+                    "is_all_day": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "timezone": {
+                        "type": "string",
+                        "example": "America/Argentina/Buenos_Aires"
+                    },
+                    "recurrence_rule": {
+                        "type": "string",
+                        "example": "FREQ=WEEKLY;BYDAY=TU",
+                        "nullable": true
+                    },
+                    "location": {
+                        "type": "string",
+                        "example": "Conference Room B",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "confirmed",
+                            "canceled",
+                            "tentative",
+                            "pending_approval"
+                        ],
+                        "example": "confirmed"
+                    }
+                },
+                "type": "object"
+            },
+            "InviteParticipantRequest": {
+                "title": "Invite Participant Request",
+                "description": "Request payload for inviting a participant to an event",
+                "required": [
+                    "user_id"
+                ],
+                "properties": {
+                    "user_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440003"
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "organizer",
+                            "attendee"
+                        ],
+                        "example": "attendee"
+                    }
+                },
+                "type": "object"
+            },
+            "UpdateParticipantRequest": {
+                "title": "Update Participant Request",
+                "description": "Request payload for updating participant status",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "accepted",
+                            "declined",
+                            "tentative"
+                        ],
+                        "example": "accepted"
+                    },
+                    "assigned_calendar_id": {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "550e8400-e29b-41d4-a716-446655440004",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
             }
         },
         "securitySchemes": {
@@ -79,6 +772,10 @@
         {
             "name": "Events",
             "description": "Events"
+        },
+        {
+            "name": "Event Participants",
+            "description": "Event Participants"
         }
     ]
 }

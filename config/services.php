@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Microservices Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for communication with other microservices in the system.
+    |
+    */
+
+    'user_service' => [
+        'base_url' => env('USER_SERVICE_BASE_URL', 'http://user-service'),
+    ],
+
+    'calendar_service' => [
+        'base_url' => env('CALENDAR_SERVICE_BASE_URL', 'http://calendar-service'),
+    ],
+
 ];

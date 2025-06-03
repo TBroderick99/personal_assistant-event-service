@@ -11,7 +11,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Register microservice communication services
+        $this->app->singleton(\App\Services\UserService::class);
+        $this->app->singleton(\App\Services\CalendarService::class);
+        $this->app->singleton(\App\Services\EventEnrichmentService::class);
     }
 
     /**

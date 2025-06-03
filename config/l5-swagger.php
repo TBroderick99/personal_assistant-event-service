@@ -5,7 +5,7 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'User-Service',
+                'title' => 'Event-Service',
             ],
 
             'routes' => [

@@ -11,9 +11,14 @@ Route::middleware('auth:api')->group(function () {
     Route::get('/events/{id}', [EventController::class, 'show'])->name('events.show');
     Route::put('/events/{id}', [EventController::class, 'update'])->name('events.update');
     Route::delete('/events/{id}', [EventController::class, 'destroy'])->name('events.destroy');
-    
+
     // Event participants routes
     Route::post('/events/{id}/participants', [EventController::class, 'inviteParticipant'])->name('events.participants.invite');
     Route::put('/events/{eventId}/participants/{userId}', [EventController::class, 'updateParticipant'])->name('events.participants.update');
     Route::delete('/events/{eventId}/participants/{userId}', [EventController::class, 'removeParticipant'])->name('events.participants.remove');
+
+    // Health check route for microservice monitoring
+    Route::get('/health', function () {
+        return response()->json(['status' => 'healthy', 'service' => 'event-service']);
+    });
 });

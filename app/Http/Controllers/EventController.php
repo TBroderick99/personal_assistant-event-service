@@ -2,15 +2,30 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Responses\ApiSuccessResponse;
+use App\Http\Responses\ApiErrorResponse;
 use App\Models\Event;
 use App\Models\EventParticipant;
+use App\Rules\ValidCalendar;
+use App\Services\EventEnrichmentService;
+use App\Services\UserService;
+use App\Services\CalendarService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use OpenApi\Attributes as OA;
+use Exception;
 
 class EventController extends Controller
 {
+    public function __construct(
+        private EventEnrichmentService $eventEnrichmentService,
+        private UserService $userService,
+        private CalendarService $calendarService
+    ) {
+    }
     #[OA\Get(
         path: "/api/events",
         summary: "List events",
@@ -64,33 +79,65 @@ class EventController extends Controller
             )
         ]
     )]
-    public function index(Request $request): JsonResponse
+    public function index(Request $request)
     {
-        $query = Event::query();
+        try {
+            $query = Event::query();
 
-        // Filter by calendar_id
-        if ($request->has('calendar_id')) {
-            $query->forCalendar($request->calendar_id);
+            // Filter by calendar_id
+            if ($request->has('calendar_id')) {
+                $query->forCalendar($request->calendar_id);
+            }
+
+            // Filter by user_id
+            if ($request->has('user_id')) {
+                $query->forUser($request->user_id);
+            }
+
+            // Filter by date range
+            if ($request->has('start_date') && $request->has('end_date')) {
+                $request->validate([
+                    'start_date' => 'date',
+                    'end_date' => 'date|after_or_equal:start_date'
+                ]);
+                $query->inDateRange($request->start_date, $request->end_date);
+            }
+
+            $events = $query->orderBy('start_datetime')->get();
+
+            // Check if we should enrich with user details
+            if ($request->boolean('with_participants')) {
+                $enrichedEvents = $this->eventEnrichmentService->enrichEventsWithUserDetails($events);
+                
+                return new ApiSuccessResponse(
+                    statusCode: Response::HTTP_OK,
+                    result: ['events' => $enrichedEvents],
+                    metaData: ['total' => count($enrichedEvents), 'enriched' => true]
+                );
+            }
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['events' => $events],
+                metaData: ['total' => $events->count(), 'enriched' => false]
+            );
+
+        } catch (ValidationException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errorType: 'ERR_VALIDATION',
+                message: 'Validation failed for event listing',
+                errors: $e->errors()
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_EVENT_LISTING',
+                message: 'Failed to retrieve events',
+                errors: ['database' => ['Unable to fetch events. Please try again.']],
+                exception: $e
+            );
         }
-
-        // Filter by user_id
-        if ($request->has('user_id')) {
-            $query->forUser($request->user_id);
-        }
-
-        // Filter by date range
-        if ($request->has('start_date') && $request->has('end_date')) {
-            $query->inDateRange($request->start_date, $request->end_date);
-        }
-
-        // Include participants if requested
-        if ($request->boolean('with_participants')) {
-            $query->with('participants');
-        }
-
-        $events = $query->orderBy('start_datetime')->get();
-
-        return response()->json($events);
     }
 
     #[OA\Get(
@@ -126,17 +173,44 @@ class EventController extends Controller
             )
         ]
     )]
-    public function show(Request $request, string $id): JsonResponse
+    public function show(Request $request, string $id)
     {
-        $query = Event::where('id', $id);
+        try {
+            $event = Event::findOrFail($id);
 
-        if ($request->boolean('with_participants')) {
-            $query->with('participants');
+            // Check if we should enrich with user details
+            if ($request->boolean('with_participants')) {
+                $enrichedEvent = $this->eventEnrichmentService->enrichEventWithUserDetails($event);
+                
+                return new ApiSuccessResponse(
+                    statusCode: Response::HTTP_OK,
+                    result: ['event' => $enrichedEvent],
+                    metaData: ['enriched' => true]
+                );
+            }
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['event' => $event],
+                metaData: ['enriched' => false]
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_EVENT_NOT_FOUND',
+                message: 'Event not found',
+                errors: ['event' => ['The requested event does not exist.']]
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_EVENT_RETRIEVAL',
+                message: 'Failed to retrieve event',
+                errors: ['database' => ['Unable to fetch event details. Please try again.']],
+                exception: $e
+            );
         }
-
-        $event = $query->firstOrFail();
-
-        return response()->json($event);
     }
 
     #[OA\Post(
@@ -164,33 +238,83 @@ class EventController extends Controller
             )
         ]
     )]
-    public function store(Request $request): JsonResponse
+    public function store(Request $request)
     {
-        $validated = $request->validate([
-            'calendar_id' => 'required|uuid',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'start_datetime' => 'required|date',
-            'end_datetime' => 'required|date|after:start_datetime',
-            'is_all_day' => 'boolean',
-            'timezone' => 'required|string|max:100',
-            'recurrence_rule' => 'nullable|string',
-            'location' => 'nullable|string|max:255',
-            'creator_user_id' => 'required|uuid',
-            'status' => 'in:confirmed,canceled,tentative,pending_approval'
-        ]);
+        try {
+            // Get current user ID (this would typically come from authentication middleware)
+            $currentUserId = $request->header('X-User-ID') ?? $request->input('creator_user_id');
+            
+            if (!$currentUserId) {
+                return new ApiErrorResponse(
+                    statusCode: Response::HTTP_UNAUTHORIZED,
+                    errorType: 'ERR_AUTHENTICATION',
+                    message: 'User authentication required',
+                    errors: ['auth' => ['User ID must be provided in X-User-ID header or creator_user_id field.']]
+                );
+            }
 
-        $event = Event::create($validated);
+            $validated = $request->validate([
+                'calendar_id' => ['required', 'uuid', new ValidCalendar($currentUserId, $this->calendarService)],
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string',
+                'start_datetime' => 'required|date',
+                'end_datetime' => 'required|date|after:start_datetime',
+                'is_all_day' => 'boolean',
+                'timezone' => 'required|string|max:100',
+                'recurrence_rule' => 'nullable|string',
+                'location' => 'nullable|string|max:255',
+                'creator_user_id' => 'sometimes|uuid',
+                'status' => 'in:confirmed,canceled,tentative,pending_approval'
+            ]);
 
-        // Automatically add the creator as an organizer
-        EventParticipant::create([
-            'event_id' => $event->id,
-            'user_id' => $event->creator_user_id,
-            'status' => 'accepted',
-            'role' => 'organizer'
-        ]);
+            // Verify the creator user exists
+            if (!$this->userService->userExists($currentUserId)) {
+                return new ApiErrorResponse(
+                    statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                    errorType: 'ERR_USER_NOT_FOUND',
+                    message: 'Creator user does not exist',
+                    errors: ['creator_user_id' => ['The specified user does not exist in the system.']]
+                );
+            }
 
-        return response()->json($event->load('participants'), 201);
+            // Set creator_user_id to current user
+            $validated['creator_user_id'] = $currentUserId;
+
+            $event = Event::create($validated);
+
+            // Automatically add the creator as an organizer
+            EventParticipant::create([
+                'event_id' => $event->id,
+                'user_id' => $event->creator_user_id,
+                'status' => 'accepted',
+                'role' => 'organizer'
+            ]);
+
+            // Return enriched event data
+            $enrichedEvent = $this->eventEnrichmentService->enrichEventWithUserDetails($event);
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_CREATED,
+                result: ['event' => $enrichedEvent],
+                metaData: ['message' => 'Event created successfully']
+            );
+
+        } catch (ValidationException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errorType: 'ERR_VALIDATION',
+                message: 'Validation failed for event creation',
+                errors: $e->errors()
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_EVENT_CREATION',
+                message: 'Event creation failed due to a server error',
+                errors: ['database' => ['Failed to create event. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
+        }
     }
 
     #[OA\Put(
@@ -231,25 +355,57 @@ class EventController extends Controller
             )
         ]
     )]
-    public function update(Request $request, string $id): JsonResponse
+    public function update(Request $request, string $id)
     {
-        $event = Event::findOrFail($id);
+        try {
+            $event = Event::findOrFail($id);
 
-        $validated = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'start_datetime' => 'sometimes|date',
-            'end_datetime' => 'sometimes|date|after:start_datetime',
-            'is_all_day' => 'boolean',
-            'timezone' => 'sometimes|string|max:100',
-            'recurrence_rule' => 'nullable|string',
-            'location' => 'nullable|string|max:255',
-            'status' => 'in:confirmed,canceled,tentative,pending_approval'
-        ]);
+            $validated = $request->validate([
+                'title' => 'sometimes|string|max:255',
+                'description' => 'nullable|string',
+                'start_datetime' => 'sometimes|date',
+                'end_datetime' => 'sometimes|date|after:start_datetime',
+                'is_all_day' => 'boolean',
+                'timezone' => 'sometimes|string|max:100',
+                'recurrence_rule' => 'nullable|string',
+                'location' => 'nullable|string|max:255',
+                'status' => 'in:confirmed,canceled,tentative,pending_approval'
+            ]);
 
-        $event->update($validated);
+            $event->update($validated);
 
-        return response()->json($event->load('participants'));
+            // Return enriched event data
+            $enrichedEvent = $this->eventEnrichmentService->enrichEventWithUserDetails($event);
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['event' => $enrichedEvent],
+                metaData: ['message' => 'Event updated successfully']
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_EVENT_NOT_FOUND',
+                message: 'Event not found',
+                errors: ['event' => ['The requested event does not exist.']]
+            );
+        } catch (ValidationException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errorType: 'ERR_VALIDATION',
+                message: 'Validation failed for event update',
+                errors: $e->errors()
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_EVENT_UPDATE',
+                message: 'Event update failed due to a server error',
+                errors: ['database' => ['Failed to update event. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
+        }
     }
 
     #[OA\Delete(
@@ -277,12 +433,36 @@ class EventController extends Controller
             )
         ]
     )]
-    public function destroy(string $id): JsonResponse
+    public function destroy(string $id)
     {
-        $event = Event::findOrFail($id);
-        $event->delete();
+        try {
+            $event = Event::findOrFail($id);
+            $eventTitle = $event->title; // Store for response message
+            
+            $event->delete();
 
-        return response()->json(null, 204);
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['deleted' => true],
+                metaData: ['message' => "Event '{$eventTitle}' has been deleted successfully"]
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_EVENT_NOT_FOUND',
+                message: 'Event not found',
+                errors: ['event' => ['The requested event does not exist.']]
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_EVENT_DELETION',
+                message: 'Event deletion failed due to a server error',
+                errors: ['database' => ['Failed to delete event. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
+        }
     }
 
     #[OA\Post(
@@ -327,32 +507,86 @@ class EventController extends Controller
             )
         ]
     )]
-    public function inviteParticipant(Request $request, string $id): JsonResponse
+    public function inviteParticipant(Request $request, string $id)
     {
-        $event = Event::findOrFail($id);
+        try {
+            $event = Event::findOrFail($id);
 
-        $validated = $request->validate([
-            'user_id' => 'required|uuid',
-            'role' => 'in:organizer,attendee'
-        ]);
+            $validated = $request->validate([
+                'user_id' => 'required|uuid',
+                'role' => 'in:organizer,attendee'
+            ]);
 
-        // Check if participant already exists
-        $existingParticipant = EventParticipant::where('event_id', $id)
-            ->where('user_id', $validated['user_id'])
-            ->first();
+            // Verify the user exists in the User service
+            if (!$this->userService->userExists($validated['user_id'])) {
+                return new ApiErrorResponse(
+                    statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                    errorType: 'ERR_USER_NOT_FOUND',
+                    message: 'User does not exist',
+                    errors: ['user_id' => ['The specified user does not exist in the system.']]
+                );
+            }
 
-        if ($existingParticipant) {
-            return response()->json(['message' => 'Participant already exists for this event'], 409);
+            // Check if participant already exists
+            $existingParticipant = EventParticipant::where('event_id', $id)
+                ->where('user_id', $validated['user_id'])
+                ->first();
+
+            if ($existingParticipant) {
+                return new ApiErrorResponse(
+                    statusCode: Response::HTTP_CONFLICT,
+                    errorType: 'ERR_PARTICIPANT_EXISTS',
+                    message: 'Participant already exists for this event',
+                    errors: ['user_id' => ['This user is already a participant in the event.']]
+                );
+            }
+
+            $participant = EventParticipant::create([
+                'event_id' => $id,
+                'user_id' => $validated['user_id'],
+                'role' => $validated['role'] ?? 'attendee',
+                'status' => 'pending'
+            ]);
+
+            // Get user details for the response
+            $userData = $this->userService->getUserById($validated['user_id']);
+            $participantWithUser = [
+                'event_id' => $participant->event_id,
+                'user_id' => $participant->user_id,
+                'role' => $participant->role,
+                'status' => $participant->status,
+                'user' => $userData
+            ];
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_CREATED,
+                result: ['participant' => $participantWithUser],
+                metaData: ['message' => 'Participant invited successfully']
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_EVENT_NOT_FOUND',
+                message: 'Event not found',
+                errors: ['event' => ['The requested event does not exist.']]
+            );
+        } catch (ValidationException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errorType: 'ERR_VALIDATION',
+                message: 'Validation failed for participant invitation',
+                errors: $e->errors()
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_PARTICIPANT_INVITATION',
+                message: 'Participant invitation failed due to a server error',
+                errors: ['database' => ['Failed to invite participant. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
         }
-
-        $participant = EventParticipant::create([
-            'event_id' => $id,
-            'user_id' => $validated['user_id'],
-            'role' => $validated['role'] ?? 'attendee',
-            'status' => 'pending'
-        ]);
-
-        return response()->json($participant, 201);
     }
 
     #[OA\Put(
@@ -400,20 +634,60 @@ class EventController extends Controller
             )
         ]
     )]
-    public function updateParticipant(Request $request, string $eventId, string $userId): JsonResponse
+    public function updateParticipant(Request $request, string $eventId, string $userId)
     {
-        $participant = EventParticipant::where('event_id', $eventId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+        try {
+            $participant = EventParticipant::where('event_id', $eventId)
+                ->where('user_id', $userId)
+                ->firstOrFail();
 
-        $validated = $request->validate([
-            'status' => 'sometimes|in:pending,accepted,declined,tentative',
-            'assigned_calendar_id' => 'nullable|uuid'
-        ]);
+            $validated = $request->validate([
+                'status' => 'sometimes|in:pending,accepted,declined,tentative',
+                'assigned_calendar_id' => 'nullable|uuid'
+            ]);
 
-        $participant->update($validated);
+            $participant->update($validated);
 
-        return response()->json($participant);
+            // Get user details for the response
+            $userData = $this->userService->getUserById($userId);
+            $participantWithUser = [
+                'event_id' => $participant->event_id,
+                'user_id' => $participant->user_id,
+                'role' => $participant->role,
+                'status' => $participant->status,
+                'assigned_calendar_id' => $participant->assigned_calendar_id,
+                'user' => $userData
+            ];
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['participant' => $participantWithUser],
+                metaData: ['message' => 'Participant status updated successfully']
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_PARTICIPANT_NOT_FOUND',
+                message: 'Participant not found',
+                errors: ['participant' => ['The requested participant does not exist for this event.']]
+            );
+        } catch (ValidationException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
+                errorType: 'ERR_VALIDATION',
+                message: 'Validation failed for participant update',
+                errors: $e->errors()
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_PARTICIPANT_UPDATE',
+                message: 'Participant update failed due to a server error',
+                errors: ['database' => ['Failed to update participant. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
+        }
     }
 
     #[OA\Delete(
@@ -448,14 +722,40 @@ class EventController extends Controller
             )
         ]
     )]
-    public function removeParticipant(string $eventId, string $userId): JsonResponse
+    public function removeParticipant(string $eventId, string $userId)
     {
-        $participant = EventParticipant::where('event_id', $eventId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+        try {
+            $participant = EventParticipant::where('event_id', $eventId)
+                ->where('user_id', $userId)
+                ->firstOrFail();
 
-        $participant->delete();
+            // Get user details for the response message
+            $userData = $this->userService->getUserById($userId);
+            $userName = $userData['name'] ?? 'Unknown User';
 
-        return response()->json(null, 204);
+            $participant->delete();
+
+            return new ApiSuccessResponse(
+                statusCode: Response::HTTP_OK,
+                result: ['removed' => true],
+                metaData: ['message' => "Participant '{$userName}' has been removed from the event successfully"]
+            );
+
+        } catch (ModelNotFoundException $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_NOT_FOUND,
+                errorType: 'ERR_PARTICIPANT_NOT_FOUND',
+                message: 'Participant not found',
+                errors: ['participant' => ['The requested participant does not exist for this event.']]
+            );
+        } catch (Exception $e) {
+            return new ApiErrorResponse(
+                statusCode: Response::HTTP_INTERNAL_SERVER_ERROR,
+                errorType: 'ERR_PARTICIPANT_REMOVAL',
+                message: 'Participant removal failed due to a server error',
+                errors: ['database' => ['Failed to remove participant. Please try again. If problem persists, contact support.']],
+                exception: $e
+            );
+        }
     }
 }

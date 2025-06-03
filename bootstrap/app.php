@@ -21,7 +21,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        //
+        // Register custom middleware aliases
+        $middleware->alias([
+            'validate.api.key' => \App\Http\Middleware\ValidateApiKey::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         // Optional: If you want to report all Throwables (can be noisy)

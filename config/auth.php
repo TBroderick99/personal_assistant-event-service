@@ -112,4 +112,18 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | API Keys for Microservice Authentication
+    |--------------------------------------------------------------------------
+    |
+    | These API keys are used to authenticate requests in a microservice 
+    | architecture. The gateway API key is used by Kong Gateway for external
+    | requests, while the internal API key is used for service-to-service
+    | communication.
+    |
+    */
+
+    'gateway_api_key' => env('GATEWAY_API_KEY'),
+    'internal_api_key' => env('INTERNAL_API_KEY'),
 ];

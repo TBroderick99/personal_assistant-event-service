@@ -5,6 +5,32 @@ namespace App\OpenApi;
 use OpenApi\Attributes as OA;
 
 class Schemas {
+    #[OA\SecurityScheme(
+        securityScheme: "bearerAuth",
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT"
+    )]
+    public function bearerAuth(): void {}
+
+    #[OA\SecurityScheme(
+        securityScheme: "InternalAPIKeyAuth",
+        type: "apiKey",
+        in: "header",
+        name: "X-Internal-API-Key",
+        description: "API Key for internal services"
+    )]
+    public function internalAPIKey(): void {}
+
+    #[OA\SecurityScheme(
+        securityScheme: "GatewayAPIKeyAuth",
+        type: "apiKey",
+        in: "header",
+        name: "X-Gateway-API-Key",
+        description: "API Key for gateway services"
+    )]
+    public function gatewayAPIKeyAuth(): void {}
+
     #[OA\Schema(
         schema: "ValidationError",
         title: "Validation Error",

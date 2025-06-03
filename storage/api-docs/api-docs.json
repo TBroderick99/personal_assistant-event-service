@@ -765,6 +765,18 @@
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
                 "description": "Enter token in format (Bearer <token>) obtained from login/register"
+            },
+            "InternalAPIKeyAuth": {
+                "type": "apiKey",
+                "description": "API Key for internal services",
+                "name": "X-Internal-API-Key",
+                "in": "header"
+            },
+            "GatewayAPIKeyAuth": {
+                "type": "apiKey",
+                "description": "API Key for gateway services",
+                "name": "X-Gateway-API-Key",
+                "in": "header"
             }
         }
     },

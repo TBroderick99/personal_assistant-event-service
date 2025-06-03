@@ -38,10 +38,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             if ($request->expectsJson()) {
                 return new ApiErrorResponse(
-                    exception: $e,
+                    statusCode: Response::HTTP_NOT_FOUND,
+                    errorType: 'ERR_NOT_FOUND',
                     message: 'Resource not found.',
-                    statusCode: Response::HTTP_NOT_FOUND, // Use Response::HTTP_NOT_FOUND constant
-                    errors: ['request' => 'The requested resource was not found on this server.']
+                    errors: ['request' => 'The requested resource was not found on this server.'],
+                    exception: $e
                 );
             }
         });
@@ -55,10 +56,11 @@ return Application::configure(basePath: dirname(__DIR__))
                     $message .= ' Allowed methods: ' . $allowedMethods;
                 }
                 return new ApiErrorResponse(
-                    exception: $e,
+                    statusCode: Response::HTTP_METHOD_NOT_ALLOWED,
+                    errorType: 'ERR_METHOD_NOT_ALLOWED',
                     message: $message,
-                    statusCode: Response::HTTP_METHOD_NOT_ALLOWED, // Use Response::HTTP_METHOD_NOT_ALLOWED
-                    errors: $e->getHeaders() // Consider if you want all headers here or just a simpler message
+                    errors: $e->getHeaders(),
+                    exception: $e
                 );
             }
         });
@@ -67,10 +69,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (ValidationException $e, Request $request) {
             if ($request->expectsJson()) {
                 return new ApiErrorResponse(
-                    exception: $e,
-                    message: $e->getMessage(), // Or a generic "Validation Failed."
                     statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
-                    errors: $e->errors()
+                    errorType: 'ERR_VALIDATION_FAILED',
+                    message: $e->getMessage(),
+                    errors: $e->errors(),
+                    exception: $e
                 );
             }
         });
@@ -111,10 +114,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
 
                 return new ApiErrorResponse(
-                    exception: $e,
-                    message: $message,
                     statusCode: $statusCode,
-                    errors: $errors
+                    errorType: 'ERR_GENERIC',
+                    message: $message,
+                    errors: $errors,
+                    exception: $e
                 );
             }
         });

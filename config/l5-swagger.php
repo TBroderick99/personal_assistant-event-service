@@ -49,6 +49,11 @@ return [
                     base_path('app/OpenApi'),
                 ],
             ],
+            'security' => [
+                ['bearerAuth' => []], //JWT handled by KONG
+                ['X-Gateway-API-Key' => []], //API Key for gateway
+                ['X-Internal-API-Key' => []], //API Key for internal services
+            ],
         ],
     ],
     'defaults' => [

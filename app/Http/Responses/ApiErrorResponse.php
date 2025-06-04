@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Casts\Json;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Js;
+use Throwable;
 
 class ApiErrorResponse implements Responsable
 {
@@ -16,7 +17,7 @@ class ApiErrorResponse implements Responsable
         private ?string $errorType = 'ERR_INTERNAL_SERVER_ERROR',
         private string $message,
         private array $errors = [],//INCLUDE ERRORS BELOW AS WELL
-        private ?Exception $exception = null,
+        private ?Throwable $exception = null,
         private array $headers = [],
         private int $options = 0
     ) {

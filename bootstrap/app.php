@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ValidateApiKey;
 use App\Http\Responses\ApiErrorResponse;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -8,6 +9,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
@@ -23,7 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Register custom middleware aliases
         $middleware->alias([
-            'validate.api.key' => \App\Http\Middleware\ValidateApiKey::class,
+            'validate.api.key' => ValidateApiKey::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -81,10 +83,18 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Generic fallback for other Throwables to ensure JSON response for API requests
         $exceptions->render(function (Throwable $e, Request $request) {
-            // Place a dd($e) here for debugging what exceptions are hitting this generic handler
-            // dd($e);
+            // Debug: Log what's happening
+            Log::info('Exception caught in global handler', [
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+                'expects_json' => $request->expectsJson(),
+                'accept_header' => $request->header('Accept'),
+                'content_type' => $request->header('Content-Type'),
+                'is_api_route' => $request->is('api/*'),
+            ]);
 
-            if ($request->expectsJson()) {
+            // Force JSON response for API routes
+            if ($request->expectsJson() || $request->wantsJson()) {
                 $statusCode = match (true) {
                     // ValidationException is handled above, but kept for completeness if you didn't have the specific handler
                     $e instanceof ValidationException => Response::HTTP_UNPROCESSABLE_ENTITY,
@@ -121,5 +131,8 @@ return Application::configure(basePath: dirname(__DIR__))
                     exception: $e
                 );
             }
+            
+            // If not API route and doesn't expect JSON, let Laravel handle it normally
+            return null;
         });
     })->create();

@@ -33,6 +33,9 @@ class ValidateApiKey
             $keyType = 'Internal';
         }
 
+        // Extract JWT claims if token is present (assuming already validated by gateway)
+        $this->extractJwtClaims($request);
+
         // No API key provided
         if (!$receivedApiKey) {
             Log::warning('Unauthorized access attempt: Missing API Key', [
@@ -98,5 +101,53 @@ class ValidateApiKey
         ]);
 
         return $next($request);
+    }
+
+    /**
+     * Extract JWT claims and add them as headers for downstream services
+     */
+    private function extractJwtClaims(Request $request): void
+    {
+        $authorizationHeader = $request->header('Authorization');
+        
+        if (!$authorizationHeader || !str_starts_with($authorizationHeader, 'Bearer ')) {
+            return;
+        }
+
+        $token = substr($authorizationHeader, 7); // Remove 'Bearer ' prefix
+        
+        try {
+            // Decode JWT payload (assuming it's already validated by gateway)
+            $parts = explode('.', $token);
+            if (count($parts) !== 3) {
+                return;
+            }
+
+            $payload = json_decode(base64_decode($parts[1]), true);
+            
+            if (!$payload) {
+                return;
+            }
+
+            // Extract user ID (sub claim) and add as header
+            if (isset($payload['sub'])) {
+                $request->headers->set('X-User-ID', $payload['sub']);
+            }
+
+            // Extract scopes and add as header
+            if (isset($payload['scopes'])) {
+                $scopes = is_array($payload['scopes']) 
+                    ? implode(' ', $payload['scopes']) 
+                    : $payload['scopes'];
+                $request->headers->set('X-Scopes', $scopes);
+            }
+
+        } catch (Exception $e) {
+            // Log JWT parsing error but don't fail the request
+            Log::warning('Failed to parse JWT claims', [
+                'error' => $e->getMessage(),
+                'url' => $request->fullUrl(),
+            ]);
+        }
     }
 }

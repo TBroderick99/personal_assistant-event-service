@@ -52,21 +52,23 @@
                     {
                         "name": "start_date",
                         "in": "query",
-                        "description": "Filter events starting from this date",
+                        "description": "Filter events starting from this date (YYYY-MM-DDTHH:mm:SSZ)",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date-time"
+                            "format": "date-time",
+                            "example": "2025-06-11T10:30:00Z"
                         }
                     },
                     {
                         "name": "end_date",
                         "in": "query",
-                        "description": "Filter events ending before this date",
+                        "description": "Filter events ending before this date (YYYY-MM-DDTHH:mm:SSZ)",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "format": "date-time"
+                            "format": "date-time",
+                            "example": "2025-07-11T10:30:00Z"
                         }
                     },
                     {
@@ -94,7 +96,18 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
@@ -134,7 +147,18 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             }
         },
         "/api/events/{id}": {
@@ -181,7 +205,18 @@
                     "404": {
                         "description": "Event not found"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             },
             "put": {
                 "tags": [
@@ -236,7 +271,18 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             },
             "delete": {
                 "tags": [
@@ -264,7 +310,18 @@
                     "404": {
                         "description": "Event not found"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             }
         },
         "/api/events/{id}/participants": {
@@ -324,7 +381,18 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             }
         },
         "/api/events/{eventId}/participants/{userId}": {
@@ -391,7 +459,18 @@
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             },
             "delete": {
                 "tags": [
@@ -429,7 +508,18 @@
                     "404": {
                         "description": "Participant not found"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    },
+                    {
+                        "GatewayAPIKeyAuth": []
+                    },
+                    {
+                        "InternalAPIKeyAuth": []
+                    }
+                ]
             }
         }
     },
@@ -504,7 +594,7 @@
                     "creator_user_id": {
                         "type": "string",
                         "format": "uuid",
-                        "example": "550e8400-e29b-41d4-a716-446655440002"
+                        "example": "0196ab4e-15e6-7371-92d7-935e995bfaef"
                     },
                     "status": {
                         "type": "string",

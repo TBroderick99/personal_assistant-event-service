@@ -34,9 +34,10 @@ class ValidCalendar implements ValidationRule
             return;
         }
 
+        // TODO: CHECK IF THIS IS NECESSARY. Above it GETS the calendar and checks if user has access already i think. Maybe modify above to just check existence and not access?
         // Additional check: if userId is provided, verify user has access
-        if ($this->userId && !$calendarService->userHasAccessToCalendar($this->userId, $value)) {
+        /* if ($this->userId && !$calendarService->userHasAccessToCalendar($this->userId, $value)) {
             $fail('You do not have access to the selected calendar.');
-        }
+        } */
     }
 }

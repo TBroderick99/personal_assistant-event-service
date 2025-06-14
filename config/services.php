@@ -46,10 +46,20 @@ return [
 
     'user_service' => [
         'base_url' => env('USER_SERVICE_BASE_URL', 'http://user-service'),
+        'headers' => [
+            'Accept' => 'application/json',
+            'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
+        ],
+        'timeout' => 10, // Default timeout
     ],
 
     'calendar_service' => [
         'base_url' => env('CALENDAR_SERVICE_BASE_URL', 'http://calendar-service'),
+        'headers' => [
+            'Accept' => 'application/json',
+            'X-Internal-API-Key' => env('INTERNAL_API_KEY'),
+        ],
+        'timeout' => 10, // Default timeout
     ],
 
 ];

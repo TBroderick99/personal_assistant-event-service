@@ -95,6 +95,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
             // Force JSON response for API routes
             if ($request->expectsJson() || $request->wantsJson()) {
+                Log::error('API Exception', [
+                    'exception' => get_class($e),
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
                 $statusCode = match (true) {
                     // ValidationException is handled above, but kept for completeness if you didn't have the specific handler
                     $e instanceof ValidationException => Response::HTTP_UNPROCESSABLE_ENTITY,
@@ -122,14 +127,22 @@ return Application::configure(basePath: dirname(__DIR__))
                      $errors[get_class($e)] = 'An unexpected error occurred.';
                 }
 
-
-                return new ApiErrorResponse(
+                $response = new ApiErrorResponse(
                     statusCode: $statusCode,
                     errorType: 'ERR_GENERIC',
                     message: $message,
                     errors: $errors,
                     exception: $e
                 );
+
+                // TODO: MAKE THIS WORK FOR TIMEOUTS: Force immediate response for timeouts
+                if ($e instanceof \Symfony\Component\HttpKernel\Exception\HttpException && $statusCode === 408) {
+                    // For timeout specifically, send immediate response
+                    return response($response->toResponse(request())->getContent(), $statusCode)
+                        ->header('Content-Type', 'application/json');
+                }
+
+                return $response;
             }
             
             // If not API route and doesn't expect JSON, let Laravel handle it normally

@@ -22,19 +22,21 @@ class ValidateApiKey
      */
     public function handle(Request $request, Closure $next)
     {
+        /* Log::info('Validating API key for request', [
+            'request' => $request
+        ]); */
         $configKey = 'gateway_api_key';
         $receivedApiKey = $request->header('X-Gateway-API-Key');
         $keyType = 'Gateway';
+        $isExternal = true; // Gateway requests are external
         
         // If no gateway API key, check for internal service API key
         if (!$receivedApiKey) {
             $receivedApiKey = $request->header('X-Internal-API-Key');
             $configKey = 'internal_api_key';
             $keyType = 'Internal';
+            $isExternal = false; // Internal service requests
         }
-
-        // Extract JWT claims if token is present (assuming already validated by gateway)
-        $this->extractJwtClaims($request);
 
         // No API key provided
         if (!$receivedApiKey) {
@@ -100,6 +102,11 @@ class ValidateApiKey
             'user_id' => $request->header('X-User-ID'),
         ]);
 
+        // Add header to indicate request type
+        $request->headers->set('X-Is-External', $isExternal ? 'true' : 'false');
+        // Extract JWT claims if token is present (assuming already validated by gateway)
+        $this->extractJwtClaims($request);
+
         return $next($request);
     }
 
@@ -129,8 +136,18 @@ class ValidateApiKey
                 return;
             }
 
-            // Extract user ID (sub claim) and add as header
-            if (isset($payload['sub'])) {
+            if (isset($payload['sub']) && (
+                // Condition for Internal requests: X-Is-External is NOT 'true' AND X-User-ID is NOT set (cases where the other service already set the user id).
+                ($request->header('X-Is-External') != 'true' && !$request->header('X-User-ID')) ||
+                // Condition for External requests: X-Is-External IS 'true'
+                ($request->header('X-Is-External') == 'true')
+            )) {
+                Log::info('Extracting user ID from JWT', [
+                    'user_id' => $payload['sub'],
+                    'url' => $request->fullUrl(),
+                    'is_external' => ($request->header('X-Is-External') == 'true') ? 'true' : 'false', // For better log context
+                    'has_x_user_id_before' => (bool)$request->header('X-User-ID'), // For better log context
+                ]);
                 $request->headers->set('X-User-ID', $payload['sub']);
             }
 

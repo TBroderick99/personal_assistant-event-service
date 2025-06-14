@@ -30,6 +30,11 @@ class EventController extends Controller
         path: "/api/events",
         summary: "List events",
         description: "Retrieve a list of events. Can be filtered by calendar_id, user_id, or date range.",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Events"],
         parameters: [
             new OA\Parameter(
@@ -48,17 +53,17 @@ class EventController extends Controller
             ),
             new OA\Parameter(
                 name: "start_date",
-                description: "Filter events starting from this date",
+                description: "Filter events starting from this date (YYYY-MM-DDTHH:mm:SSZ)",
                 in: "query",
                 required: false,
-                schema: new OA\Schema(type: "string", format: "date-time")
+                schema: new OA\Schema(type: "string", format: "date-time", example: "2025-06-11T10:30:00Z")
             ),
             new OA\Parameter(
                 name: "end_date",
-                description: "Filter events ending before this date",
+                description: "Filter events ending before this date (YYYY-MM-DDTHH:mm:SSZ)",
                 in: "query",
                 required: false,
-                schema: new OA\Schema(type: "string", format: "date-time")
+                schema: new OA\Schema(type: "string", format: "date-time", example: "2025-07-11T10:30:00Z")
             ),
             new OA\Parameter(
                 name: "with_participants",
@@ -82,16 +87,16 @@ class EventController extends Controller
     public function index(Request $request)
     {
         try {
-            $query = Event::query();
+            $eventsQuery = Event::query();
 
             // Filter by calendar_id
             if ($request->has('calendar_id')) {
-                $query->forCalendar($request->calendar_id);
+                $eventsQuery->forCalendar($request->calendar_id);
             }
 
             // Filter by user_id
             if ($request->has('user_id')) {
-                $query->forUser($request->user_id);
+                $eventsQuery->forUser($request->user_id);
             }
 
             // Filter by date range
@@ -100,10 +105,10 @@ class EventController extends Controller
                     'start_date' => 'date',
                     'end_date' => 'date|after_or_equal:start_date'
                 ]);
-                $query->inDateRange($request->start_date, $request->end_date);
+                $eventsQuery->inDateRange($request->start_date, $request->end_date);
             }
 
-            $events = $query->orderBy('start_datetime')->get();
+            $events = $eventsQuery->orderBy('start_datetime')->get();
 
             // Check if we should enrich with user details
             if ($request->boolean('with_participants')) {
@@ -144,6 +149,11 @@ class EventController extends Controller
         path: "/api/events/{id}",
         summary: "Get a specific event",
         description: "Retrieve details of a specific event by ID",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Events"],
         parameters: [
             new OA\Parameter(
@@ -217,6 +227,11 @@ class EventController extends Controller
         path: "/api/events",
         summary: "Create a new event",
         description: "Create a new event in the system",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Events"],
         requestBody: new OA\RequestBody(
             required: true,
@@ -241,10 +256,12 @@ class EventController extends Controller
     public function store(Request $request)
     {
         try {
-            // Get current user ID (this would typically come from authentication middleware)
-            $currentUserId = $request->header('X-User-ID') ?? $request->input('creator_user_id');
+            // TODO: If external and X-User-ID!=creator_user_id. Check permissions/scope of user id in X-User-ID header and verify if they have permission to create events for other users.
+            // If it's an external request (not from another microservice), get user ID from header, otherwise from input.
+            // This is to avoid external user from being able to forge a request and create event for another user ID.
+            $userId = $request->header('X-Is-External') ? $request->header('X-User-ID') : $request->input('creator_user_id');
             
-            if (!$currentUserId) {
+            if (!$userId) {
                 return new ApiErrorResponse(
                     statusCode: Response::HTTP_UNAUTHORIZED,
                     errorType: 'ERR_AUTHENTICATION',
@@ -254,7 +271,7 @@ class EventController extends Controller
             }
 
             $validated = $request->validate([
-                'calendar_id' => ['required', 'uuid', new ValidCalendar($currentUserId, $this->calendarService)],
+                'calendar_id' => ['required', 'uuid', new ValidCalendar($userId, $this->calendarService)],
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
                 'start_datetime' => 'required|date',
@@ -263,22 +280,22 @@ class EventController extends Controller
                 'timezone' => 'required|string|max:100',
                 'recurrence_rule' => 'nullable|string',
                 'location' => 'nullable|string|max:255',
-                'creator_user_id' => 'sometimes|uuid',
+                'creator_user_id' => 'sometimes|nullable|uuid',
                 'status' => 'in:confirmed,canceled,tentative,pending_approval'
             ]);
 
-            // Verify the creator user exists
-            if (!$this->userService->userExists($currentUserId)) {
+            // TODO: Verify the creator user exists
+            /* if (!$this->userService->userExists($userId)) {
                 return new ApiErrorResponse(
                     statusCode: Response::HTTP_UNPROCESSABLE_ENTITY,
                     errorType: 'ERR_USER_NOT_FOUND',
                     message: 'Creator user does not exist',
                     errors: ['creator_user_id' => ['The specified user does not exist in the system.']]
                 );
-            }
+            } */
 
             // Set creator_user_id to current user
-            $validated['creator_user_id'] = $currentUserId;
+            $validated['creator_user_id'] = $userId;
 
             $event = Event::create($validated);
 
@@ -321,6 +338,11 @@ class EventController extends Controller
         path: "/api/events/{id}",
         summary: "Update an event",
         description: "Update an existing event",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Events"],
         parameters: [
             new OA\Parameter(
@@ -412,6 +434,11 @@ class EventController extends Controller
         path: "/api/events/{id}",
         summary: "Delete an event",
         description: "Delete an event and all its participants",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Events"],
         parameters: [
             new OA\Parameter(
@@ -469,6 +496,11 @@ class EventController extends Controller
         path: "/api/events/{id}/participants",
         summary: "Invite a participant to an event",
         description: "Add a new participant to an event",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Event Participants"],
         parameters: [
             new OA\Parameter(
@@ -593,6 +625,11 @@ class EventController extends Controller
         path: "/api/events/{eventId}/participants/{userId}",
         summary: "Update participant status",
         description: "Update a participant's status and assigned calendar",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Event Participants"],
         parameters: [
             new OA\Parameter(
@@ -694,6 +731,11 @@ class EventController extends Controller
         path: "/api/events/{eventId}/participants/{userId}",
         summary: "Remove a participant from an event",
         description: "Remove a participant from an event",
+        security: [
+            ["bearerAuth" => []],
+            ["GatewayAPIKeyAuth" => []],
+            ["InternalAPIKeyAuth" => []]
+        ],
         tags: ["Event Participants"],
         parameters: [
             new OA\Parameter(

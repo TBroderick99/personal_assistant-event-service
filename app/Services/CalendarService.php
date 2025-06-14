@@ -8,11 +8,16 @@ use Exception;
 
 class CalendarService
 {
-    private string $calendarServiceBaseUrl;
+    protected $baseUrl;
+    protected $defaultHeaders;
+    protected $timeout;
 
     public function __construct()
     {
-        $this->calendarServiceBaseUrl = config('services.calendar_service.base_url', 'http://calendar-service');
+        $config = config('services.calendar_service');
+        $this->baseUrl = $config['base_url'];
+        $this->defaultHeaders = $config['headers'];
+        $this->timeout = $config['timeout'];
     }
 
     /**
@@ -27,13 +32,19 @@ class CalendarService
         try {
             $params = [];
             if ($userId) {
-                $params['user_id'] = $userId;
+                $params['X-User-ID'] = $userId;
             }
 
-            $response = Http::timeout(10)
-                ->get("{$this->calendarServiceBaseUrl}/api/calendars/{$calendarId}/validate", $params);
-
-            return $response->successful() && $response->json('data.valid', false);
+            $response = Http::withHeaders($this->defaultHeaders)
+                        ->timeout($this->timeout)
+                        ->get("{$this->baseUrl}/api/calendars/{$calendarId}", $params);
+            Log::info('Validating calendar with Calendar service', [
+                'calendar_id' => $calendarId,
+                'user_id' => $userId,
+                'status' => $response->status(),
+                'response' => $response->body()
+            ]);
+            return $response->successful(); //&& $response->json('data.valid', false);
 
         } catch (Exception $e) {
             Log::error('Error validating calendar with Calendar service', [
@@ -59,8 +70,9 @@ class CalendarService
     public function getCalendarById(string $calendarId): ?array
     {
         try {
-            $response = Http::timeout(10)
-                ->get("{$this->calendarServiceBaseUrl}/api/calendars/{$calendarId}");
+            $response = Http::withHeaders($this->defaultHeaders)
+                        ->timeout($this->timeout)
+                        ->get("{$this->baseUrl}/api/calendars/{$calendarId}");
 
             if ($response->successful()) {
                 return $response->json('data');
@@ -97,8 +109,9 @@ class CalendarService
     public function getUserCalendars(string $userId): array
     {
         try {
-            $response = Http::timeout(10)
-                ->get("{$this->calendarServiceBaseUrl}/api/users/{$userId}/calendars");
+            $response = Http::withHeaders($this->defaultHeaders)
+                        ->timeout($this->timeout)
+                        ->get("{$this->baseUrl}/api/users/{$userId}/calendars");
 
             if ($response->successful()) {
                 return $response->json('data', []);
@@ -132,10 +145,11 @@ class CalendarService
     public function userHasAccessToCalendar(string $userId, string $calendarId): bool
     {
         try {
-            $response = Http::timeout(10)
-                ->get("{$this->calendarServiceBaseUrl}/api/calendars/{$calendarId}/access", [
-                    'user_id' => $userId
-                ]);
+            $response = Http::withHeaders($this->defaultHeaders)
+                        ->timeout($this->timeout)
+                        ->get("{$this->baseUrl}/api/calendars/{$calendarId}/access", [
+                            'user_id' => $userId
+                        ]);
 
             return $response->successful() && $response->json('data.has_access', false);
 

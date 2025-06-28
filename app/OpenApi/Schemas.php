@@ -60,6 +60,7 @@ class Schemas {
             new OA\Property(property: "location", type: "string", nullable: true, example: "Conference Room A"),
             new OA\Property(property: "creator_user_id", type: "string", format: "uuid", example: "0196ab4e-15e6-7371-92d7-935e995bfaef"),
             new OA\Property(property: "status", type: "string", enum: ["confirmed", "canceled", "tentative", "pending_approval"], example: "confirmed"),
+            new OA\Property(property: "color", type: "string", nullable: true, pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$", example: "#3498DBFF"),
             new OA\Property(property: "created_at", type: "string", format: "date-time", example: "2025-06-03T15:20:00Z"),
             new OA\Property(property: "updated_at", type: "string", format: "date-time", example: "2025-06-03T15:20:00Z"),
             new OA\Property(
@@ -105,7 +106,8 @@ class Schemas {
             new OA\Property(property: "recurrence_rule", type: "string", nullable: true, example: "FREQ=WEEKLY;BYDAY=MO"),
             new OA\Property(property: "location", type: "string", nullable: true, example: "Conference Room A"),
             new OA\Property(property: "creator_user_id", type: "string", format: "uuid", example: "550e8400-e29b-41d4-a716-446655440002"),
-            new OA\Property(property: "status", type: "string", enum: ["confirmed", "canceled", "tentative", "pending_approval"], example: "confirmed")
+            new OA\Property(property: "status", type: "string", enum: ["confirmed", "canceled", "tentative", "pending_approval"], example: "confirmed"),
+            new OA\Property(property: "color", type: "string", nullable: true, pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$", example: "#3498DBFF")
         ],
         type: "object"
     )]
@@ -124,7 +126,8 @@ class Schemas {
             new OA\Property(property: "timezone", type: "string", example: "America/Argentina/Buenos_Aires"),
             new OA\Property(property: "recurrence_rule", type: "string", nullable: true, example: "FREQ=WEEKLY;BYDAY=TU"),
             new OA\Property(property: "location", type: "string", nullable: true, example: "Conference Room B"),
-            new OA\Property(property: "status", type: "string", enum: ["confirmed", "canceled", "tentative", "pending_approval"], example: "confirmed")
+            new OA\Property(property: "status", type: "string", enum: ["confirmed", "canceled", "tentative", "pending_approval"], example: "confirmed"),
+            new OA\Property(property: "color", type: "string", nullable: true, pattern: "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$", example: "#E74C3CFF")
         ],
         type: "object"
     )]

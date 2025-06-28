@@ -29,6 +29,7 @@ class Event extends Model
         'location',
         'creator_user_id',
         'status',
+        'color',
     ];
 
     /**

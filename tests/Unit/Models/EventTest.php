@@ -33,7 +33,8 @@ class EventTest extends TestCase
             'timezone' => 'America/Argentina/Buenos_Aires',
             'location' => 'Conference Room A',
             'creator_user_id' => '550e8400-e29b-41d4-a716-446655440002',
-            'status' => 'confirmed'
+            'status' => 'confirmed',
+            'color' => '#3498DBFF'
         ];
 
         $event = Event::create($eventData);
@@ -341,5 +342,44 @@ class EventTest extends TestCase
         $this->assertCount(2, $userIds);
         $this->assertContains($userId1, $userIds);
         $this->assertContains($userId2, $userIds);
+    }
+
+    /** @test */
+    public function it_can_store_and_retrieve_color()
+    {
+        $event = Event::create([
+            'calendar_id' => '550e8400-e29b-41d4-a716-446655440001',
+            'title' => 'Colored Event',
+            'start_datetime' => '2025-06-10 10:00:00',
+            'end_datetime' => '2025-06-10 11:00:00',
+            'timezone' => 'America/Argentina/Buenos_Aires',
+            'creator_user_id' => '550e8400-e29b-41d4-a716-446655440002',
+            'color' => '#FF5733FF'
+        ]);
+
+        $this->assertEquals('#FF5733FF', $event->color);
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id,
+            'color' => '#FF5733FF'
+        ]);
+    }
+
+    /** @test */
+    public function it_can_create_event_without_color()
+    {
+        $event = Event::create([
+            'calendar_id' => '550e8400-e29b-41d4-a716-446655440001',
+            'title' => 'Event Without Color',
+            'start_datetime' => '2025-06-10 10:00:00',
+            'end_datetime' => '2025-06-10 11:00:00',
+            'timezone' => 'America/Argentina/Buenos_Aires',
+            'creator_user_id' => '550e8400-e29b-41d4-a716-446655440002',
+        ]);
+
+        $this->assertNull($event->color);
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id,
+            'color' => null
+        ]);
     }
 }

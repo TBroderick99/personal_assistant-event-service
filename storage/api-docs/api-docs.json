@@ -606,6 +606,12 @@
                         ],
                         "example": "confirmed"
                     },
+                    "color": {
+                        "type": "string",
+                        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$",
+                        "example": "#3498DBFF",
+                        "nullable": true
+                    },
                     "created_at": {
                         "type": "string",
                         "format": "date-time",
@@ -744,6 +750,12 @@
                             "pending_approval"
                         ],
                         "example": "confirmed"
+                    },
+                    "color": {
+                        "type": "string",
+                        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$",
+                        "example": "#3498DBFF",
+                        "nullable": true
                     }
                 },
                 "type": "object"
@@ -798,6 +810,12 @@
                             "pending_approval"
                         ],
                         "example": "confirmed"
+                    },
+                    "color": {
+                        "type": "string",
+                        "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$",
+                        "example": "#E74C3CFF",
+                        "nullable": true
                     }
                 },
                 "type": "object"

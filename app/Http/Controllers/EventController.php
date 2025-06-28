@@ -7,6 +7,7 @@ use App\Http\Responses\ApiErrorResponse;
 use App\Models\Event;
 use App\Models\EventParticipant;
 use App\Rules\ValidCalendar;
+use App\Rules\HexColor;
 use App\Services\EventEnrichmentService;
 use App\Services\UserService;
 use App\Services\CalendarService;
@@ -281,7 +282,8 @@ class EventController extends Controller
                 'recurrence_rule' => 'nullable|string',
                 'location' => 'nullable|string|max:255',
                 'creator_user_id' => 'sometimes|nullable|uuid',
-                'status' => 'in:confirmed,canceled,tentative,pending_approval'
+                'status' => 'in:confirmed,canceled,tentative,pending_approval',
+                'color' => ['nullable', new HexColor()]
             ]);
 
             // TODO: Verify the creator user exists
@@ -391,7 +393,8 @@ class EventController extends Controller
                 'timezone' => 'sometimes|string|max:100',
                 'recurrence_rule' => 'nullable|string',
                 'location' => 'nullable|string|max:255',
-                'status' => 'in:confirmed,canceled,tentative,pending_approval'
+                'status' => 'in:confirmed,canceled,tentative,pending_approval',
+                'color' => ['nullable', new HexColor()]
             ]);
 
             $event->update($validated);
